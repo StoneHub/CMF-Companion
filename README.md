@@ -1,55 +1,119 @@
-# CMF Companion (native Android)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-dark.svg">
+  <img alt="CMF COMPANION. Open Android companion for the CMF Watch 3 Pro" src=".github/assets/banner-light.svg" width="100%">
+</picture>
 
-A Kotlin app that replaces Nothing X for the CMF Watch 3 Pro (and Watch Pro 2). It keeps one
-Bluetooth LE connection to the watch in a foreground service and does everything the web app
-does, without a browser:
+<br>
 
-| Feature | Status |
-| --- | --- |
-| Pair (factory `AT GETSECRET`), log in with the stored key, reconnect with backoff | ported from cmfkit, unit-tested against the simulator |
-| Time sync on connect, on time-zone change, and every 15 min; battery | ported |
-| Notifications from any app, per-app allow/mute list, calls shown as "Call: name" | new |
-| Now playing (YouTube, podcasts, Spotify…) on the music card; card buttons control playback and volume | new; button code map unconfirmed, see below |
-| Find my phone (rings even on silent) and find watch | new / ported |
-| Weather tile from Open-Meteo, by location or a typed city | new; icon ids unconfirmed |
-| Watch apps from the web store (`web/public/apps`), run unchanged in a hidden WebView; import your own `.js` | new |
-| Install photo and structured watch faces (`.bin`) | ported |
-| Watch as speaker: plain call link, or a pretend phone call through Telecom | experiment |
+```
+●  AN OPEN ANDROID APP FOR THE CMF WATCH 3 PRO.  NO ACCOUNT.  NO CLOUD.  ONE CONNECTION.
+```
 
-## Layout
+CMF Companion replaces Nothing X on your phone. It holds a single Bluetooth LE link to the
+watch from a quiet foreground service, and does the everyday work: notifications, music,
+weather, time, find‑my‑phone, watch faces, and small apps that draw on the watch's own
+screens. Pairing goes through the watch's factory shell, so there is no Nothing account and
+nothing leaves your phone.
 
-* `protocol/` — pure Kotlin port of `src/cmfkit/protocol` and `session.py`. No Android
-  dependencies. `./gradlew -PprotocolOnly :protocol:test` runs it on any JDK 17+, including
-  byte-for-byte checks against `web/src/lib/__fixtures__/vectors.json` (made by the Python code).
-* `app/` — the Android app (Compose UI, BLE transport, services). The web store's apps are copied
-  into the APK at build time.
+<br>
 
-## Build
+## 01 &nbsp;/&nbsp; WHAT IT DOES
+
+| | Feature | Status |
+|:-:|---|---|
+| ● | Pair, log in with the stored key, reconnect with backoff | Working |
+| ● | Notifications from any app, per‑app allow and mute, calls as "Call: name" | Working |
+| ● | Now playing from YouTube, podcasts, Spotify… with play, skip and volume from the wrist | Working |
+| ● | Weather from Open‑Meteo, by location or a typed city | Working |
+| ● | Time sync on connect, on time‑zone change and every 15 min; battery level | Working |
+| ● | Find my phone (rings on silent) and find my watch | Working |
+| ● | Watch apps from the CMF‑Open store, run unchanged in a hidden WebView; import your own `.js` | Working |
+| ● | Install photo and structured watch faces (`.bin`) | Working |
+| ◐ | Watch as a speaker for media, through a pretend phone call | Experiment |
+| ○ | Weekly forecast, frequent contacts, health sync to Google Health | In progress |
+
+Tested on a CMF Watch 3 Pro, firmware 1.0.1.77, with a Galaxy Z Fold. The Watch Pro 2 uses
+the same protocol and should work.
+
+<br>
+
+## 02 &nbsp;/&nbsp; INSTALL
+
+Grab the latest `cmf-companion-debug` APK from the
+[Actions tab](../../actions/workflows/android.yml), or build it:
 
 ```sh
-cd android
-./gradlew :app:assembleDebug          # needs the Android SDK (ANDROID_HOME or local.properties)
+git clone --recurse-submodules https://github.com/StoneHub/CMF-Companion
+cd CMF-Companion
+./gradlew :app:assembleDebug        # needs the Android SDK (ANDROID_HOME or local.properties)
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-CI (`.github/workflows/android.yml`) builds the APK on every push that touches `android/`; the
-APK is attached to the run as the `cmf-companion-debug` artifact.
+Then, on the phone:
 
-## First run
+```
+01  Force-stop or uninstall Nothing X. The watch talks to one phone app at a time.
+02  Open CMF Companion. Allow Nearby devices, notification access and background running.
+03  Choose your watch and accept the pairing prompt on your wrist. Done; the key is kept.
+```
 
-1. Nothing X and the watch can't share the connection. Force-stop Nothing X (or uninstall it)
-   before choosing the watch here.
-2. Allow Nearby devices, Notification access, notifications and "run in background" from the
-   Watch tab's setup card.
-3. Choose the watch, then accept the pairing prompt on the wrist. The key is stored, so later
-   connections need no prompt.
+<br>
 
-## Things to check on the real watch
+## 03 &nbsp;/&nbsp; HOW IT'S BUILT
 
-Everything below is logged on the Log tab and in `adb logcat -s CmfCompanion`.
+```
+protocol/   Pure Kotlin. Framing, AES session, pairing, payloads. No Android deps.
+app/        Compose UI, BLE transport, foreground service, notification listener,
+            media bridge, weather, watch-app runtime, speaker experiment.
+upstream/   git submodule: TechJeeper/CMF-Open (test vectors and the watch-app store).
+```
 
-* **Music button codes.** The `FFFF:A05D` code map is not confirmed. Press each control on the
-  watch's music card and note the logged code; `Prefs.buttonCodes` holds the map.
-* **Weather icons.** `WeatherSync.condition()` guesses the watch's icon ids.
-* **Unknown frames on connect** (`FFFF:A06B` "en", `FFFF:A06A`, dial list) are logged and ignored.
-* **Speaker.** Needs the watch connected for calls in Android's Bluetooth settings.
+The protocol layer runs on any JDK and is checked byte for byte against vectors from the
+Python reference implementation:
+
+```sh
+./gradlew -PprotocolOnly :protocol:test
+```
+
+Everything the app does is logged on its **Log** tab and in `adb logcat -s CmfCompanion`.
+
+**Power.** One BLE connection, no polling. The service sleeps until the watch, a
+notification or a media change wakes it. Weather refreshes every 30 minutes; time syncs
+every 15.
+
+<br>
+
+## 04 &nbsp;/&nbsp; STILL TO CONFIRM ON A REAL WATCH
+
+```
+○  Music button code map (FFFF:A05D)         see Prefs.buttonCodes
+○  Some weather icon ids                       see WeatherSync.condition()
+○  Unknown frames on connect                   logged and ignored
+○  Speaker mode                                needs the watch allowed for calls in Bluetooth settings
+```
+
+If you have a watch and five minutes, open an issue with your Log tab output.
+
+<br>
+
+## 05 &nbsp;/&nbsp; CREDITS
+
+* **[CMF-Open](https://github.com/TechJeeper/CMF-Open)** by TechJeeper: the reverse‑engineered
+  protocol, the Python `cmfkit` this app's protocol layer is ported from, and the watch‑app store.
+* **[Gadgetbridge](https://codeberg.org/Freeyourgadget/Gadgetbridge)**: its field‑tested CMF notes
+  confirmed the weather layout and icon ids. No Gadgetbridge code is included.
+* **[Open‑Meteo](https://open-meteo.com)** for free weather data.
+
+<br>
+
+## 06 &nbsp;/&nbsp; LICENSE
+
+MIT, see [LICENSE](LICENSE).
+
+CMF Companion is an independent project. It is not made, endorsed or supported by Nothing
+Technology Limited. "CMF" and "Nothing" are their trademarks, used here only to say which
+watch this works with.
+
+<br>
+
+<p align="center"><code>● ● ●</code></p>

@@ -39,9 +39,9 @@ android {
     }
 }
 
-// Bundle the web store's watch apps (web/public/apps) so they run on the phone unchanged.
+// Bundle the CMF-Open web store watch apps (submodule, web/public/apps) so they run unchanged.
 val copyWatchApps by tasks.registering(Copy::class) {
-    from(rootProject.file("../web/public/apps"))
+    from(rootProject.file("upstream/cmf-open/web/public/apps"))
     include("*.js", "index.json")
     into(layout.buildDirectory.dir("generated/watchApps/apps"))
 }

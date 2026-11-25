@@ -1,0 +1,3 @@
+[submodule "upstream/cmf-open"]
+	path = upstream/cmf-open
+	url = https://github.com/TechJeeper/CMF-Open
