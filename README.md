@@ -5,6 +5,9 @@
 
 <br>
 
+> **Built on [CMF-Open](https://github.com/TechJeeper/CMF-Open) by TechJeeper.** Their reverse‑engineering
+> and Python `cmfkit` are the foundation this Android app stands on.
+
 ```
 ●  AN OPEN ANDROID APP FOR THE CMF WATCH 3 PRO.  NO ACCOUNT.  NO CLOUD.  ONE CONNECTION.
 ```
@@ -108,7 +111,11 @@ If you have a watch and five minutes, open an issue with your Log tab output.
 
 ## 06 &nbsp;/&nbsp; LICENSE
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE), for the code written for this app.
+
+`protocol/` is a Kotlin port of TechJeeper's `cmfkit`, and `upstream/` links to their repo,
+which has no license file yet. Those parts remain credited to TechJeeper; if they publish a
+license, it applies to them, and if they'd like anything changed here, just open an issue.
 
 CMF Companion is an independent project. It is not made, endorsed or supported by Nothing
 Technology Limited. "CMF" and "Nothing" are their trademarks, used here only to say which
