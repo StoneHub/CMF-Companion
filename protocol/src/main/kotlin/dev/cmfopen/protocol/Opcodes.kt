@@ -68,6 +68,16 @@ object Ops {
     /** Sent by the watch (payload 5a) when its music card opens; it appears to want fresh music info. Inferred, not documented. */
     val MUSIC_CARD_OPEN = Op(0xFFFF, 0xA090)
 
+    /**
+     * Essential News. Opening the news app on a Watch 3 Pro (firmware 1.0.1.77) sends NEWS_SYNC_REQUEST
+     * with payload 01 about once a second until the phone answers; the screen sits on "Initializing"
+     * meanwhile. Nothing X calls it cAINewsSyncR. NEWS_A0D6 (payload 010100) followed once the watch gave
+     * up. With Nothing X the watch then opens A2DP to the phone and the news audio plays through it.
+     * The reply opcode and payload are not known yet; see NewsProbe.
+     */
+    val NEWS_SYNC_REQUEST = Op(0xFFFF, 0xA0D5)
+    val NEWS_A0D6 = Op(0xFFFF, 0xA0D6)
+
     /** Opcodes that are never AES-encrypted, even after a key is established. */
     val PLAINTEXT: Set<Op> = setOf(AUTH_PAIR_REQUEST, AUTH_PAIR_REPLY, WF_CHUNK_WRITE, FW_CHUNK_WRITE, Op(0xFFFF, 0x905F))
 

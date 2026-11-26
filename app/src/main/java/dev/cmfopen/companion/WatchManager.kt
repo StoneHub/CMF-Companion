@@ -39,6 +39,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * backoff, and route everything the rest of the app wants to send or receive.
  */
 class WatchManager(private val context: Context, private val prefs: Prefs) {
+    private val newsProbe = NewsProbe()
+
     enum class Phase { IDLE, CONNECTING, PAIRING, AWAITING_ACCEPT, CONNECTED, WAITING_RETRY, NEEDS_PAIRING }
 
     data class State(
@@ -262,6 +264,10 @@ class WatchManager(private val context: Context, private val prefs: Prefs) {
             // The first press on a freshly opened music card can be swallowed until the watch has
             // current music info, so answer right away.
             if (!apps.active) media.push(force = true)
+            return
+        }
+        if (m.op == Ops.NEWS_SYNC_REQUEST) {
+            launchWithSession("news probe") { newsProbe.answer(it) }
             return
         }
         val b = WatchButton.from(m, prefs.buttonCodes)
