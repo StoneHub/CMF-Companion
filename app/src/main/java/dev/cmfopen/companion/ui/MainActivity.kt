@@ -82,14 +82,23 @@ private fun Root() {
     }
 }
 
-private val Accent = Color(0xFFFF5A1F)
+// Nothing red, as in the README banner. One accent; everything else stays monochrome.
+private val Accent = Color(0xFFD71921)
 
 @Composable
 fun CompanionTheme(content: @Composable () -> Unit) {
     val scheme = if (isSystemInDarkTheme()) {
-        darkColorScheme(primary = Accent, secondary = Accent, background = Color(0xFF0E0E0E), surface = Color(0xFF0E0E0E))
+        darkColorScheme(
+            primary = Accent, onPrimary = Color.White, secondary = Accent,
+            background = Color.Black, surface = Color(0xFF0B0B0B), surfaceContainer = Color(0xFF111111),
+            outlineVariant = Color(0xFF2A2A2A),
+        )
     } else {
-        lightColorScheme(primary = Color(0xFFD9480F), secondary = Color(0xFFD9480F))
+        lightColorScheme(
+            primary = Accent, onPrimary = Color.White, secondary = Accent,
+            background = Color(0xFFF5F5F5), surface = Color.White, surfaceContainer = Color(0xFFF5F5F5),
+            outlineVariant = Color(0xFFDADADA),
+        )
     }
     MaterialTheme(colorScheme = scheme, content = content)
 }
