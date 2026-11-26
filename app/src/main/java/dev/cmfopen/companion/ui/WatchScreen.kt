@@ -1,16 +1,7 @@
 package dev.cmfopen.companion.ui
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
-import android.os.PowerManager
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -23,18 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -42,21 +29,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.cmfopen.companion.CompanionApp
 import dev.cmfopen.companion.WatchManager.Phase
-import dev.cmfopen.companion.ble.FoundWatch
-import dev.cmfopen.companion.ble.WatchScanner
 import dev.cmfopen.companion.media.SpeakerExperiment
 import dev.cmfopen.protocol.Payloads
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun WatchScreen(modifier: Modifier) {
@@ -64,162 +45,27 @@ fun WatchScreen(modifier: Modifier) {
     val prefs = app.prefs
     val watch = app.watch
     val state by watch.state.collectAsStateWithLifecycle()
-    @Suppress("UNUSED_VARIABLE") val v by prefs.version.collectAsStateWithLifecycle()
-    var picking by remember { mutableStateOf(false) }
+    val version by prefs.version.collectAsStateWithLifecycle()
+    val setup = rememberSetupItems()
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Section(prefs.deviceName ?: "No watch yet") {
-            val status = when (state.phase) {
-                Phase.IDLE -> if (prefs.deviceAddress == null) "Choose your watch to get started." else "Not connected"
-                Phase.CONNECTING -> "Connecting…"
-                Phase.PAIRING -> "Pairing…"
-                Phase.AWAITING_ACCEPT -> "Accept the request on your watch screen"
-                Phase.CONNECTED -> "Connected"
-                Phase.WAITING_RETRY -> "Out of reach, retrying" + (state.retryInS?.let { " in ${it}s" } ?: "")
-                Phase.NEEDS_PAIRING -> "Needs pairing again"
-            }
-            Text(status, fontWeight = FontWeight.SemiBold)
-            if (state.phase == Phase.CONNECTED) {
-                Text(listOfNotNull(state.battery?.let { "Battery $it%" + if (state.charging) " (charging)" else "" }, state.firmware?.let { "firmware $it" }).joinToString(" · "))
-            }
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            if (state.phase == Phase.CONNECTING || state.phase == Phase.WAITING_RETRY) {
-                Hint("Only one app can talk to the watch at a time. If Nothing X is installed, force-stop it or turn off its Bluetooth access.")
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { picking = true }) { Text(if (prefs.deviceAddress == null) "Choose watch" else "Change") }
-                if (state.phase == Phase.CONNECTED) OutlinedButton(onClick = { watch.findWatch() }) { Text("Find watch") }
-                if (prefs.deviceAddress != null && state.phase != Phase.CONNECTED) OutlinedButton(onClick = { watch.start() }) { Text("Retry now") }
-            }
-            if (prefs.deviceAddress != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { watch.pairAgain() }) { Text("Pair again") }
-                    TextButton(onClick = { watch.forget() }) { Text("Forget watch") }
-                }
-            }
-        }
-
-        SetupSection()
-        MusicSection(state.lastButton)
-        WeatherSection()
-        ContactsSection()
-        FacesSection(state.phase == Phase.CONNECTED)
-        SpeakerSection()
-    }
-
-    if (picking) PickWatchDialog(onDismiss = { picking = false }) { device, name ->
-        picking = false
-        watch.select(device, name)
-    }
-}
-
-// -- setup -------------------------------------------------------------------
-
-private fun Context.granted(p: String) = checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
-
-@Composable
-private fun SetupSection() {
-    val ctx = LocalContext.current
-    val app = CompanionApp.instance
-    var refresh by remember { mutableStateOf(0) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        refresh++
-        app.watch.start()
-    }
-    val btPerms = if (Build.VERSION.SDK_INT >= 31) arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-    else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-    if (refresh < 0) return // read `refresh` so the checks below re-run when it changes
-    val btOk = btPerms.all { ctx.granted(it) }
-    val postOk = Build.VERSION.SDK_INT < 33 || ctx.granted(Manifest.permission.POST_NOTIFICATIONS)
-    val listenerOk = androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(ctx).contains(ctx.packageName)
-    val locOk = ctx.granted(Manifest.permission.ACCESS_COARSE_LOCATION)
-    val batteryOk = ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)
-    if (btOk && postOk && listenerOk && locOk && batteryOk) return
-
-    LaunchedEffect(Unit) {
-        // Notification access and battery settings return without a result; poll while visible.
-        while (true) {
-            delay(1500)
-            refresh++
+        // Prefs aren't Compose state; reading `version` recomposes when a watch is chosen or forgotten.
+        val address = if (version >= 0) prefs.deviceAddress else null
+        if (address == null) {
+            Onboarding(setup) { device, name -> watch.select(device, name) }
+        } else {
+            WatchCard(state, prefs.deviceName ?: "CMF Watch", address)
+            MissingSetupCard(setup)
+            MusicSection(state.lastButton)
+            WeatherSection()
+            ContactsSection()
+            FacesSection(state.phase == Phase.CONNECTED)
+            SpeakerSection()
         }
     }
-    Section("Finish setup") {
-        if (!btOk) SetupRow("Nearby devices (Bluetooth)", "Required to talk to the watch.") { launcher.launch(btPerms) }
-        if (!listenerOk) SetupRow("Notification access", "Lets the app forward texts and calls, and see what's playing.") {
-            ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }
-        if (!postOk) SetupRow("Show notifications", "For the connection status and find-my-phone.") {
-            launcher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
-        }
-        if (!batteryOk) SetupRow("Run in background", "Stops Android from cutting the watch connection.") {
-            @SuppressLint("BatteryLife")
-            val i = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
-            ctx.startActivity(i)
-        }
-        if (!locOk) SetupRow("Approximate location (optional)", "Local weather on the watch. You can type a city instead.") {
-            launcher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
-        }
-    }
-}
-
-@Composable
-private fun SetupRow(title: String, help: String, onGrant: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.weight(1f)) {
-            Text(title)
-            Hint(help)
-        }
-        TextButton(onClick = onGrant) { Text("Allow") }
-    }
-}
-
-// -- pick a watch --------------------------------------------------------------
-
-@SuppressLint("MissingPermission")
-@Composable
-private fun PickWatchDialog(onDismiss: () -> Unit, onPick: (BluetoothDevice, String) -> Unit) {
-    val ctx = LocalContext.current
-    val found = remember { mutableStateListOf<FoundWatch>() }
-    var scanning by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        // Bonded watches first: a watch busy with another phone app may not advertise.
-        runCatching {
-            ctx.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices
-                ?.filter { (it.name ?: "").startsWith("CMF Watch") }
-                ?.forEach { found += FoundWatch(it, it.name + " (paired)", 0) }
-        }
-        withTimeoutOrNull(20_000) {
-            WatchScanner.scan(ctx).catch { error = it.message }.collect { w ->
-                if (found.none { it.device.address == w.device.address }) found += w
-            }
-        }
-        scanning = false
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Choose your watch") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (scanning) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CircularProgressIndicator(Modifier.padding(2.dp), strokeWidth = 2.dp)
-                    Text("Looking for CMF watches…")
-                }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                found.forEach { w ->
-                    Column(Modifier.fillMaxWidth().clickable { onPick(w.device, w.name.removeSuffix(" (paired)")) }.padding(vertical = 6.dp)) {
-                        Text(w.name, fontWeight = FontWeight.SemiBold)
-                        Hint(w.device.address + if (w.rssi != 0) " · ${w.rssi} dBm" else "")
-                    }
-                }
-                if (!scanning && found.isEmpty()) Hint("No watch found. Make sure it's nearby and not connected to Nothing X.")
-            }
-        },
-    )
 }
 
 // -- music ---------------------------------------------------------------------
@@ -282,6 +128,12 @@ private fun WeatherSection() {
     var city by remember { mutableStateOf(prefs.weatherCity) }
     var busy by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf(app.watch.weather.last?.let { "${it.place}: ${it.tempC}°C, ${it.description}" }) }
+    val ctx = LocalContext.current
+    var locationOk by remember { mutableStateOf(ctx.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) }
+    val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        locationOk = ok
+        if (ok) scope.launch { runCatching { app.watch.weather.syncOnce() } }
+    }
     Section("Weather") {
         ToggleRow("Send weather to the watch", prefs.weatherEnabled, "Now, hourly and 7-day forecast from Open-Meteo, refreshed every 30 minutes while connected.") { prefs.weatherEnabled = it }
         ToggleRow("Fahrenheit and miles", prefs.imperialUnits, "Changes how the watch shows temperature and distance.") {
@@ -295,6 +147,9 @@ private fun WeatherSection() {
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (city.isBlank() && !locationOk) {
+            TextButton(onClick = { locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }) { Text("Use my location") }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(enabled = !busy, onClick = {
                 prefs.weatherCity = city
