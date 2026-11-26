@@ -267,6 +267,10 @@ class WatchManager(private val context: Context, private val prefs: Prefs) {
             return
         }
         if (lab.onWatchMessage(m)) return
+        if (m.op == Ops.NEWS_CONTROL && m.payload.size >= 3 && m.payload[0].toInt() == 1) {
+            onNewsControl(m.payload[1].toInt() and 0xFF, m.payload[2].toInt() != 0)
+            return
+        }
         val b = WatchButton.from(m, prefs.buttonCodes)
         if (b == null) {
             if (m.op !in QUIET) DebugLog.info("unhandled ${m}")
@@ -279,6 +283,19 @@ class WatchManager(private val context: Context, private val prefs: Prefs) {
             b == WatchButton.Named.FIND_PHONE -> ringer.toggle()
             apps.active -> apps.press(b.id)
             else -> media.handle(b)
+        }
+    }
+
+    /**
+     * The Essential News player on the watch: play/pause (ctl 1) and the crown (ctl 3, on = up).
+     * Play makes the phone's current media session play; the watch has already opened A2DP, so the
+     * audio comes out of the watch. On pause the watch drops A2DP itself.
+     */
+    private fun onNewsControl(ctl: Int, on: Boolean) {
+        DebugLog.info("news control $ctl ${if (on) "on" else "off"}")
+        when (ctl) {
+            1 -> media.setPlaying(on)
+            3 -> media.adjustVolume(on)
         }
     }
 

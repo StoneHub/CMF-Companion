@@ -69,16 +69,16 @@ object Ops {
     val MUSIC_CARD_OPEN = Op(0xFFFF, 0xA090)
 
     /**
-     * Essential News. Opening the news app on a Watch 3 Pro (firmware 1.0.1.77) sends NEWS_SYNC_REQUEST
-     * with payload 01 about once a second until the phone answers; the screen sits on "Initializing"
-     * meanwhile. Nothing X calls it cAINewsSyncR. NEWS_A0D6 (payload 010100) followed once the watch gave
-     * up. With Nothing X the watch then opens A2DP to the phone and the news audio plays through it.
-     * Answering FFFF:90D5 01 gets the watch to its player screen (2026-11-26). On that screen the play
-     * button sent NEWS_A0D6 010101 and the volume control a burst of 010301; the answers to those are
-     * still being worked out with ProtocolLab.
+     * Essential News (Watch 3 Pro, firmware 1.0.1.77, worked out 2026-11-26). Opening it sends
+     * NEWS_SYNC_REQUEST 01 once a second until the phone answers NEWS_SYNC_REPLY 01; the watch then
+     * sends NEWS_SYNC_REQUEST a5 and wants an empty NEWS_SYNC_REPLY. It then shows its player and
+     * opens A2DP to the phone, so phone audio plays through the watch speaker.
+     * NEWS_CONTROL is 01 <ctl> <on>: ctl 01 play (on=01) / pause (00), ctl 03 crown up (01) / down (00).
+     * On pause the watch drops A2DP. How the phone confirms state and volume is not known yet.
      */
     val NEWS_SYNC_REQUEST = Op(0xFFFF, 0xA0D5)
-    val NEWS_A0D6 = Op(0xFFFF, 0xA0D6)
+    val NEWS_SYNC_REPLY = Op(0xFFFF, 0x90D5)
+    val NEWS_CONTROL = Op(0xFFFF, 0xA0D6)
 
     /** Opcodes that are never AES-encrypted, even after a key is established. */
     val PLAINTEXT: Set<Op> = setOf(AUTH_PAIR_REQUEST, AUTH_PAIR_REPLY, WF_CHUNK_WRITE, FW_CHUNK_WRITE, Op(0xFFFF, 0x905F))

@@ -120,6 +120,18 @@ class MediaBridge(private val context: Context, private val prefs: Prefs, privat
         }
     }
 
+    /** Explicit play or pause, for controls that say which one they want (Essential News). */
+    fun setPlaying(play: Boolean) = main.post {
+        val t = controller?.transportControls
+        when {
+            t == null -> mediaKey(if (play) KeyEvent.KEYCODE_MEDIA_PLAY else KeyEvent.KEYCODE_MEDIA_PAUSE)
+            play -> t.play()
+            else -> t.pause()
+        }
+    }
+
+    fun adjustVolume(up: Boolean) = main.post { volume(if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER) }
+
     private fun volume(direction: Int) {
         audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, 0)
         schedulePush()
