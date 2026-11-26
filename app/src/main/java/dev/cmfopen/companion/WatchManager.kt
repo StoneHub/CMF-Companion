@@ -39,7 +39,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * backoff, and route everything the rest of the app wants to send or receive.
  */
 class WatchManager(private val context: Context, private val prefs: Prefs) {
-    private val newsProbe = NewsProbe()
+    val lab = ProtocolLab(this)
 
     enum class Phase { IDLE, CONNECTING, PAIRING, AWAITING_ACCEPT, CONNECTED, WAITING_RETRY, NEEDS_PAIRING }
 
@@ -266,10 +266,7 @@ class WatchManager(private val context: Context, private val prefs: Prefs) {
             if (!apps.active) media.push(force = true)
             return
         }
-        if (m.op == Ops.NEWS_SYNC_REQUEST) {
-            launchWithSession("news probe") { newsProbe.answer(it) }
-            return
-        }
+        if (lab.onWatchMessage(m)) return
         val b = WatchButton.from(m, prefs.buttonCodes)
         if (b == null) {
             if (m.op !in QUIET) DebugLog.info("unhandled ${m}")

@@ -18,6 +18,7 @@ class CompanionApp : Application() {
         nm.createNotificationChannel(NotificationChannel(CHANNEL_SERVICE, "Watch connection", NotificationManager.IMPORTANCE_LOW))
         nm.createNotificationChannel(NotificationChannel(CHANNEL_ALERTS, "Find my phone", NotificationManager.IMPORTANCE_HIGH))
         watch = WatchManager(this, prefs)
+        watch.lab.register(this)
     }
 
     companion object {

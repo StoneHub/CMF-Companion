@@ -73,7 +73,9 @@ object Ops {
      * with payload 01 about once a second until the phone answers; the screen sits on "Initializing"
      * meanwhile. Nothing X calls it cAINewsSyncR. NEWS_A0D6 (payload 010100) followed once the watch gave
      * up. With Nothing X the watch then opens A2DP to the phone and the news audio plays through it.
-     * The reply opcode and payload are not known yet; see NewsProbe.
+     * Answering FFFF:90D5 01 gets the watch to its player screen (2026-11-26). On that screen the play
+     * button sent NEWS_A0D6 010101 and the volume control a burst of 010301; the answers to those are
+     * still being worked out with ProtocolLab.
      */
     val NEWS_SYNC_REQUEST = Op(0xFFFF, 0xA0D5)
     val NEWS_A0D6 = Op(0xFFFF, 0xA0D6)
